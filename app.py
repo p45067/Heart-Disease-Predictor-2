@@ -1,68 +1,65 @@
 import streamlit as st
-import joblib
 import pandas as pd
+import joblib
 
-# Load the trained Random Forest model
-model = joblib.load('random_forest_model.joblib')
+# ------------------------------
+# Load trained pipeline
+# ------------------------------
+@st.cache_resource
+def load_model():
+    return joblib.load("random_forest_model.joblib")
 
-st.title('Heart Disease Prediction App')
+model = load_model()
 
-st.write("""
-This app predicts the likelihood of heart disease based on your inputs.
-""")
+# ------------------------------
+# App Title
+# ------------------------------
+st.title("❤️ Heart Disease Prediction App")
+st.write("Provide details below to predict the likelihood of heart disease.")
 
-# Get user input
-age = st.slider('Age', 18, 100, 50)
-sex = st.selectbox('Sex', ['F', 'M'])
-chest_pain_type = st.selectbox('Chest Pain Type', ['ATA', 'NAP', 'ASY', 'TA'])
-resting_bp = st.slider('Resting Blood Pressure', 80, 200, 120)
-cholesterol = st.slider('Cholesterol', 0, 600, 200)
-fasting_bs = st.selectbox('Fasting Blood Sugar > 120 mg/dL', [0, 1])
-resting_ecg = st.selectbox('Resting ECG', ['Normal', 'ST', 'LVH'])
-max_hr = st.slider('Maximum Heart Rate Achieved', 60, 202, 150)
-exercise_angina = st.selectbox('Exercise Induced Angina', ['N', 'Y'])
-oldpeak = st.slider('Oldpeak (ST depression induced by exercise relative to rest)', 0.0, 6.2, 1.0)
-st_slope = st.selectbox('ST Slope', ['Up', 'Flat', 'Down'])
+# ------------------------------
+# Input Fields (same as dataset columns)
+# ------------------------------
+age = st.number_input("Age", min_value=20, max_value=100, value=40)
+sex = st.selectbox("Sex", options=["M", "F"])
+cp = st.selectbox("Chest Pain Type", options=["ATA", "NAP", "ASY", "TA"])
+trestbps = st.number_input("Resting Blood Pressure (mm Hg)", min_value=80, max_value=200, value=120)
+chol = st.number_input("Serum Cholesterol (mg/dl)", min_value=100, max_value=600, value=200)
+fbs = st.selectbox("Fasting Blood Sugar > 120 mg/dl", options=[0, 1])
+restecg = st.selectbox("Resting ECG", options=["Normal", "ST", "LVH"])
+thalach = st.number_input("Max Heart Rate Achieved", min_value=60, max_value=220, value=150)
+exang = st.selectbox("Exercise Induced Angina", options=["Y", "N"])
+oldpeak = st.number_input("ST Depression (Oldpeak)", min_value=0.0, max_value=10.0, value=1.0, step=0.1)
+slope = st.selectbox("ST Slope", options=["Up", "Flat", "Down"])
 
+# ------------------------------
+# Prepare input for prediction
+# ------------------------------
+input_data = pd.DataFrame([{
+    "Age": age,
+    "Sex": sex,
+    "ChestPainType": cp,
+    "RestingBP": trestbps,
+    "Cholesterol": chol,
+    "FastingBS": fbs,
+    "RestingECG": restecg,
+    "MaxHR": thalach,
+    "ExerciseAngina": exang,
+    "Oldpeak": oldpeak,
+    "ST_Slope": slope
+}])
 
-# Create a dataframe from user input
-input_data = pd.DataFrame({
-    'Age': [age],
-    'Sex': [sex],
-    'ChestPainType': [chest_pain_type],
-    'RestingBP': [resting_bp],
-    'Cholesterol': [cholesterol],
-    'FastingBS': [fasting_bs],
-    'RestingECG': [resting_ecg],
-    'MaxHR': [max_hr],
-    'ExerciseAngina': [exercise_angina],
-    'Oldpeak': [oldpeak],
-    'ST_Slope': [st_slope]
-})
+# ------------------------------
+# Prediction
+# ------------------------------
+if st.button("🔍 Predict"):
+    prediction = model.predict(input_data)[0]
+    probability = model.predict_proba(input_data)[0]
 
-# Preprocess the input data (one-hot encoding - consistent with training)
-input_data_encoded = pd.get_dummies(input_data, columns=['Sex', 'ChestPainType', 'RestingECG', 'ExerciseAngina', 'ST_Slope'], drop_first=True)
-
-# Ensure all columns from training data are present in input data and in the same order
-# This is crucial for the model prediction
-for col in X_train.columns:
-    if col not in input_data_encoded.columns:
-        input_data_encoded[col] = 0
-
-input_data_encoded = input_data_encoded[X_train.columns]
-
-
-# Predict and display the result
-if st.button('Predict'):
-    prediction = model.predict(input_data_encoded)
-    prediction_proba = model.predict_proba(input_data_encoded)
-
-    st.subheader('Prediction Result')
-    if prediction[0] == 1:
-        st.write('Based on the provided information, there is a high likelihood of heart disease.')
+    st.subheader("📊 Prediction Result")
+    if prediction == "Yes":
+        st.error(f"⚠️ The model predicts **Heart Disease (Yes)** "
+                 f"(Confidence: {max(probability):.2f})")
     else:
-        st.write('Based on the provided information, there is a low likelihood of heart disease.')
-
-    st.subheader('Prediction Probability')
-    st.write(f"Probability of No Heart Disease: {prediction_proba[0][0]:.2f}")
-    st.write(f"Probability of Heart Disease: {prediction_proba[0][1]:.2f}")
+        st.success(f"✅ The model predicts **No Heart Disease** "
+                   f"(Confidence: {max(probability):.2f})")
